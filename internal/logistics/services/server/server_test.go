@@ -32,7 +32,6 @@ func SetupTestServer(t *testing.T) (*GrpcService, pb.CoopLogisticsEngineAPIClien
 		}
 	}()
 
-	// Setup client
 	conn, err := grpc.Dial(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
 		t.Fatalf("Failed to dial server: %v", err)
@@ -116,4 +115,6 @@ func TestGetWarehouse(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, len(resp.Warehouse.Suppliers), 1)
 	assert.Equal(t, resp.Warehouse.WarehouseId, warehousereq.Announcement.WarehouseId)
+
+	fmt.Println(resp)
 }
