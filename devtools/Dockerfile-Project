@@ -3,8 +3,8 @@ FROM golang:1.22
 
 ENV APP_MAIN_ENTRY_PATH=cmd/logistics
 ENV APP_BINARY_NAME=coop_logistics
-ENV CLIENT_SERVICE_HOST "0.0.0.0"
-ENV CLIENT_SERVICE_PORT 50051
+ENV CLIENT_SERVICE_HOST="0.0.0.0"
+ENV CLIENT_SERVICE_PORT=50051
 
 RUN apt-get update && apt-get install -y iputils-ping telnet
 

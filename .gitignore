@@ -10,3 +10,7 @@ cmd/logistics/logistics
 cmd/logistics/logistics.exe
 cmd/logistics/coop_logistics
 cmd/logistics/coop_logistics.exe
+
+
+cmd/server/bin/
+cmd/logistics/bin/
