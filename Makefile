@@ -30,3 +30,6 @@ client: clean build
 
 server: clean build
 	@SERVER_HOST="0.0.0.0" SERVER_TCP_PORT=50051 ./$(CMD_SERVER)/$(SERVER_BIN)
+
+genbuff:
+	@cd api && buf generate 

@@ -5,6 +5,8 @@ package coopnorge.logistics.api.v1;
 import "google/api/annotations.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
 
+option go_package = "github.com/coopnorge/interview_backend/api/gen/v1;v1";
+
 // ---------------------------------------
 // Service
 // ---------------------------------------
@@ -21,6 +23,13 @@ service CoopLogisticsEngineAPI {
     rpc UnitReachedWarehouse(UnitReachedWarehouseRequest) returns (DefaultResponse) {
         option (google.api.http) = {
             post: "/v1/warehouse/cargo_unit/reached"
+        };
+    }
+
+    // Get Information about a Warehouse and it's suppliers
+    rpc GetWarehouse(GetWarehouseRequest) returns (GetWarehouseResponse) {
+        option (google.api.http) = {
+            get: "/v1/warehouse/{warehouse_id}"
         };
     }
 }
@@ -41,12 +50,21 @@ message UnitReachedWarehouseRequest {
     WarehouseAnnouncement announcement = 2;
 }
 
+message GetWarehouseRequest {
+    int64 warehouse_id = 1;
+}
+
 // ---------------------------------------
 // Responses
 // ---------------------------------------
 
 // DefaultResponse
 message DefaultResponse {}
+
+// WarehouseResponse 
+message GetWarehouseResponse {
+    Warehouse warehouse = 1;
+}
 
 // ---------------------------------------
 // Models
@@ -66,4 +84,15 @@ message WarehouseAnnouncement {
 message Location {
     uint32 Latitude = 1;
     uint32 Longitude = 2;
+}
+
+message Warehouse {
+    int64 warehouse_id = 1;
+    Location location = 2;
+    repeated Supplier suppliers = 3;
+}
+
+message Supplier {
+    int64 supplier_id = 1;
+    Location location = 2;
 }

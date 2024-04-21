@@ -1,10 +1,13 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"sync"
 	"sync/atomic"
+
+	pb "github.com/coopnorge/interview-backend/internal/generated/logistics/api/v1"
 )
 
 type Supplier struct {
@@ -106,6 +109,30 @@ func (wa *Warehouse) GetSupplier(id int64) *Supplier {
 		return nil
 	}
 	return supplier
+}
+
+// GetProtoSuppliers retrieves all Suppliers in protobuf format. It checks for context cancellation to handle long-running or halted requests appropriately.
+func (wa *Warehouse) GetProtoSuppliers(ctx context.Context) ([]*pb.Supplier, error) {
+	wa.supplierMu.RLock()
+	defer wa.supplierMu.RUnlock()
+
+	suppliers := make([]*pb.Supplier, 0, len(wa.Suppliers))
+
+	for supplierID, supplier := range wa.Suppliers {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+
+		suppliers = append(suppliers, &pb.Supplier{
+			SupplierId: supplierID,
+			Location: &pb.Location{
+				Latitude:  supplier.Location.Lattitude,
+				Longitude: supplier.Location.Longitude,
+			},
+		})
+	}
+
+	return suppliers, nil
 }
 
 func (wa *Warehouse) GetWarehouseSummary(id int64) {

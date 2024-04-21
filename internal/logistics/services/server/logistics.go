@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"log/slog"
 	"net"
@@ -19,65 +18,47 @@ import (
 	"google.golang.org/grpc"
 )
 
-type GrpcServer struct {
+type GrpcService struct {
 	pb.UnimplementedCoopLogisticsEngineAPIServer
 	Stats      *ServerStatistics
 	Controller *receiver.LogisticsController
 
-	Destroyer chan bool
+	destroych chan bool
 }
 
-func (s *GrpcServer) MoveUnit(ctx context.Context, in *pb.MoveUnitRequest) (*pb.DefaultResponse, error) {
-	err := s.Controller.MoveUnit(ctx, in)
-	if err != nil {
-		return &pb.DefaultResponse{}, err
-	}
-	return &pb.DefaultResponse{}, nil
-}
-
-func (s *GrpcServer) UnitReachedWarehouse(ctx context.Context, in *pb.UnitReachedWarehouseRequest) (*pb.DefaultResponse, error) {
-	s.Controller.WarehouseReceivedProcessing(ctx, in)
-
-	if ctx.Err() != nil {
-		return &pb.DefaultResponse{}, ctx.Err()
-	}
-
-	return &pb.DefaultResponse{}, nil
-}
-
+// ListenAndAccept starts the grpc server and beginns accepting incomign requests
+// It will initiallize our logger and listen for signal terminations.
 func ListendAndAccept(cfg *config.ServerConfig) {
 	lis, err := net.Listen("tcp", cfg.GetCombinedAddress())
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	service, grpcServer := NewServiceAndGrpcServer()
+	server, grpcService := NewGrpcServerAndService()
 
-	pb.RegisterCoopLogisticsEngineAPIServer(service, grpcServer)
+	pb.RegisterCoopLogisticsEngineAPIServer(server, grpcService)
 
-	// NOTE: env var?
 	logInterval := 1 * time.Second
-	go grpcServer.printServerStats(logInterval)
-	go grpcServer.setupSignalHandler()
+	go grpcService.setupSignalHandler()
 
-	log.Printf("Server listening at %v", lis.Addr())
 	go func() {
-		if err := service.Serve(lis); err != nil {
+		log.Printf("Server listening at %v", lis.Addr())
+		if err := server.Serve(lis); err != nil {
 			log.Fatalf("failed to serve: %v", err)
 		}
 	}()
 
-	<-grpcServer.Destroyer
-	lis.Close()
+	go grpcService.printServerStats(logInterval)
+	<-grpcService.destroych
 }
 
-func NewServiceAndGrpcServer() (*grpc.Server, *GrpcServer) {
+func NewGrpcServerAndService() (*grpc.Server, *GrpcService) {
 	stats := &ServerStatistics{}
 	controller := receiver.NewLogisticsController()
 
-	grpcServer := &GrpcServer{
+	grpcServer := &GrpcService{
 		Stats:      stats,
 		Controller: controller,
-		Destroyer:  make(chan bool),
+		destroych:  make(chan bool),
 	}
 
 	server := grpc.NewServer(
@@ -97,13 +78,14 @@ func (s *ServerStatistics) HitIncrement() {
 }
 
 // If we need to read the hits at any point in time
-func (s *GrpcServer) GetHits() uint64 {
+func (s *GrpcService) GetHits() uint64 {
 	return atomic.LoadUint64(&s.Stats.apiHits)
 }
 
 // Prints server stats per Bucket of time.
-func (s *GrpcServer) printServerStats(t time.Duration) {
+func (s *GrpcService) printServerStats(t time.Duration) {
 	var consecutiveZeros int64
+	ctx := context.Background()
 	for {
 		time.Sleep(t)
 		hitAmount := s.Stats.resetAndPrintHits()
@@ -115,9 +97,9 @@ func (s *GrpcServer) printServerStats(t time.Duration) {
 		}
 
 		if consecutiveZeros == 5 {
-			s.Controller.PrintWarehousesSummary()
+			s.Controller.PrintWarehousesSummary(ctx)
 			slog.Info("Gracefully destroying the server, Goodbye")
-			s.Destroyer <- true
+			s.destroych <- true
 			break
 		}
 	}
@@ -126,11 +108,11 @@ func (s *GrpcServer) printServerStats(t time.Duration) {
 // Gets the current Hit Count and Resets (Swaps) the value to 0
 func (st *ServerStatistics) resetAndPrintHits() uint64 {
 	currentHits := atomic.SwapUint64(&st.apiHits, 0)
-	fmt.Printf("Server API hits: %d\n", currentHits)
+	slog.Info("Statistics", "Server API hits", currentHits)
 	return currentHits
 }
 
-// Middleware to capture API Statistics
+// Middleware / Interceptor to capture API Statistics
 func apiHitsInterceptor(stats *ServerStatistics) grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
@@ -144,11 +126,11 @@ func apiHitsInterceptor(stats *ServerStatistics) grpc.UnaryServerInterceptor {
 	}
 }
 
-func (s *GrpcServer) setupSignalHandler() {
+func (s *GrpcService) setupSignalHandler() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigs
-		s.Destroyer <- true
+		s.destroych <- true
 	}()
 }

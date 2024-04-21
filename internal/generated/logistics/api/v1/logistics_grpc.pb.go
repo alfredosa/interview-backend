@@ -4,7 +4,7 @@
 // - protoc             (unknown)
 // source: v1/logistics.proto
 
-package apiv1
+package v1
 
 import (
 	context "context"
@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 	CoopLogisticsEngineAPI_MoveUnit_FullMethodName             = "/coopnorge.logistics.api.v1.CoopLogisticsEngineAPI/MoveUnit"
 	CoopLogisticsEngineAPI_UnitReachedWarehouse_FullMethodName = "/coopnorge.logistics.api.v1.CoopLogisticsEngineAPI/UnitReachedWarehouse"
+	CoopLogisticsEngineAPI_GetWarehouse_FullMethodName         = "/coopnorge.logistics.api.v1.CoopLogisticsEngineAPI/GetWarehouse"
 )
 
 // CoopLogisticsEngineAPIClient is the client API for CoopLogisticsEngineAPI service.
@@ -31,6 +32,8 @@ type CoopLogisticsEngineAPIClient interface {
 	MoveUnit(ctx context.Context, in *MoveUnitRequest, opts ...grpc.CallOption) (*DefaultResponse, error)
 	// UnitReachedWarehouse reports when unit reached warehouse to do something there.
 	UnitReachedWarehouse(ctx context.Context, in *UnitReachedWarehouseRequest, opts ...grpc.CallOption) (*DefaultResponse, error)
+	// Get Information about a Warehouse and it's suppliers
+	GetWarehouse(ctx context.Context, in *GetWarehouseRequest, opts ...grpc.CallOption) (*GetWarehouseResponse, error)
 }
 
 type coopLogisticsEngineAPIClient struct {
@@ -59,6 +62,15 @@ func (c *coopLogisticsEngineAPIClient) UnitReachedWarehouse(ctx context.Context,
 	return out, nil
 }
 
+func (c *coopLogisticsEngineAPIClient) GetWarehouse(ctx context.Context, in *GetWarehouseRequest, opts ...grpc.CallOption) (*GetWarehouseResponse, error) {
+	out := new(GetWarehouseResponse)
+	err := c.cc.Invoke(ctx, CoopLogisticsEngineAPI_GetWarehouse_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CoopLogisticsEngineAPIServer is the server API for CoopLogisticsEngineAPI service.
 // All implementations must embed UnimplementedCoopLogisticsEngineAPIServer
 // for forward compatibility
@@ -67,6 +79,8 @@ type CoopLogisticsEngineAPIServer interface {
 	MoveUnit(context.Context, *MoveUnitRequest) (*DefaultResponse, error)
 	// UnitReachedWarehouse reports when unit reached warehouse to do something there.
 	UnitReachedWarehouse(context.Context, *UnitReachedWarehouseRequest) (*DefaultResponse, error)
+	// Get Information about a Warehouse and it's suppliers
+	GetWarehouse(context.Context, *GetWarehouseRequest) (*GetWarehouseResponse, error)
 	mustEmbedUnimplementedCoopLogisticsEngineAPIServer()
 }
 
@@ -79,6 +93,9 @@ func (UnimplementedCoopLogisticsEngineAPIServer) MoveUnit(context.Context, *Move
 }
 func (UnimplementedCoopLogisticsEngineAPIServer) UnitReachedWarehouse(context.Context, *UnitReachedWarehouseRequest) (*DefaultResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UnitReachedWarehouse not implemented")
+}
+func (UnimplementedCoopLogisticsEngineAPIServer) GetWarehouse(context.Context, *GetWarehouseRequest) (*GetWarehouseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetWarehouse not implemented")
 }
 func (UnimplementedCoopLogisticsEngineAPIServer) mustEmbedUnimplementedCoopLogisticsEngineAPIServer() {
 }
@@ -130,6 +147,24 @@ func _CoopLogisticsEngineAPI_UnitReachedWarehouse_Handler(srv interface{}, ctx c
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CoopLogisticsEngineAPI_GetWarehouse_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWarehouseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoopLogisticsEngineAPIServer).GetWarehouse(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CoopLogisticsEngineAPI_GetWarehouse_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoopLogisticsEngineAPIServer).GetWarehouse(ctx, req.(*GetWarehouseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CoopLogisticsEngineAPI_ServiceDesc is the grpc.ServiceDesc for CoopLogisticsEngineAPI service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -144,6 +179,10 @@ var CoopLogisticsEngineAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UnitReachedWarehouse",
 			Handler:    _CoopLogisticsEngineAPI_UnitReachedWarehouse_Handler,
+		},
+		{
+			MethodName: "GetWarehouse",
+			Handler:    _CoopLogisticsEngineAPI_GetWarehouse_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
