@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   grpc-server:
+    container_name: grpc-server
     build:
       context: .
       dockerfile: devtools/Dockerfile-Server
@@ -12,6 +13,7 @@ services:
       - ./build-output:/app/cmd/server
 
   grpc-client:
+    container_name: grpc-client
     build:
       context: .
       dockerfile: devtools/Dockerfile-Project

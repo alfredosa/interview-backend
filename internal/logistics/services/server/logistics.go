@@ -25,7 +25,7 @@ type GrpcService struct {
 	Stats      *ServerStatistics
 	Controller *receiver.LogisticsController
 
-	destroych chan bool
+	stopch chan bool
 }
 
 // Server Statistics represents all values that we want to track about our api, from performance to usage
@@ -41,10 +41,12 @@ func ListendAndAccept(cfg *config.ServerConfig) {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	server, grpcService := NewGrpcServerAndService()
-
 	pb.RegisterCoopLogisticsEngineAPIServer(server, grpcService)
-
 	go grpcService.setupSignalHandler()
+
+	parentCtx := context.Background()
+	ctx, cancel := context.WithTimeout(parentCtx, 15*time.Second)
+	defer cancel()
 
 	go func() {
 		log.Printf("Server listening at %v", lis.Addr())
@@ -54,8 +56,11 @@ func ListendAndAccept(cfg *config.ServerConfig) {
 	}()
 
 	logInterval := 1 * time.Second
-	go grpcService.printServerStats(logInterval)
-	<-grpcService.destroych
+	go grpcService.printServerStats(ctx, logInterval)
+
+	<-grpcService.stopch
+	grpcService.Controller.PrintWarehousesSummary(parentCtx)
+	server.GracefulStop()
 }
 
 func NewGrpcServerAndService() (*grpc.Server, *GrpcService) {
@@ -65,7 +70,7 @@ func NewGrpcServerAndService() (*grpc.Server, *GrpcService) {
 	grpcServer := &GrpcService{
 		Stats:      stats,
 		Controller: controller,
-		destroych:  make(chan bool),
+		stopch:     make(chan bool),
 	}
 
 	server := grpc.NewServer(
@@ -85,27 +90,20 @@ func (s *GrpcService) GetHits() uint64 {
 	return atomic.LoadUint64(&s.Stats.apiHits)
 }
 
-// Prints server stats in intervals of time.
-func (s *GrpcService) printServerStats(t time.Duration) {
+// Prints server stats at regular intervals until the context is done.
+func (s *GrpcService) printServerStats(ctx context.Context, t time.Duration) {
+	ticker := time.NewTicker(t)
+	defer ticker.Stop()
 
-	var consecutiveZeros int64
-
-	ctx := context.Background()
 	for {
-		time.Sleep(t)
-		hitAmount := s.Stats.resetAndPrintHits()
-
-		if hitAmount == 0 {
-			consecutiveZeros++
-		} else {
-			consecutiveZeros = 0
-		}
-
-		if consecutiveZeros == 5 {
-			s.Controller.PrintWarehousesSummary(ctx)
+		select {
+		case <-ctx.Done():
 			slog.Info("Gracefully destroying the server, Goodbye")
-			s.destroych <- true
-			break
+			s.stopch <- true
+			return
+
+		case <-ticker.C:
+			_ = s.Stats.resetAndPrintHits()
 		}
 	}
 }
@@ -136,6 +134,6 @@ func (s *GrpcService) setupSignalHandler() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigs
-		s.destroych <- true
+		s.stopch <- true
 	}()
 }

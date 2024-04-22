@@ -2,8 +2,10 @@ package receiver
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sort"
+	"strings"
 	"sync"
 
 	pb "github.com/coopnorge/interview-backend/internal/generated/logistics/api/v1"
@@ -237,19 +239,48 @@ func (lc *LogisticsController) GetAllWarehouses() []int64 {
 	return keys
 }
 
+// PrintWarehousesSummary uses boxPrint to display a summary of the warehouses
 func (lc *LogisticsController) PrintWarehousesSummary(ctx context.Context) {
 	var totalUnits uint64 = 0
+	var warehouseDetails strings.Builder
 
 	for _, warehouseID := range lc.GetAllWarehouses() {
 		warehouse, err := lc.GetWarehouse(ctx, warehouseID)
 		if err != nil {
-			slog.ErrorContext(ctx, "error retrieving warehouse", "error", err.Error())
+			return
 		}
 
-		totalUnits += warehouse.GetUnits(ctx)
-		slog.Info("Warehouse", "ID", warehouseID, "Warehouse Units", warehouse.GetUnits(ctx), "Number of Suppliers", len(warehouse.Suppliers))
+		units := warehouse.GetUnits(ctx)
+		totalUnits += units
+		warehouseDetails.WriteString(fmt.Sprintf("Warehouse ID: %d, Units: %d, Suppliers: %d\n", warehouseID, units, len(warehouse.Suppliers)))
 	}
 
-	slog.Info("Total # of Unique Suppliers", "Suppliers", len(lc.Suppliers))
-	slog.Info("Total warehouse units", "Units", totalUnits)
+	warehouseDetails.WriteString(fmt.Sprintf("Total # of Unique Suppliers: %d\n", len(lc.Suppliers)))
+	warehouseDetails.WriteString(fmt.Sprintf("Total Warehouse Units: %d", totalUnits))
+
+	boxPrint("Warehouse Summary", warehouseDetails.String())
+}
+
+// boxPrint prints the given title and message inside an ASCII art box.
+func boxPrint(title, message string) {
+	lines := strings.Split(message, "\n")
+	maxLength := len(title)
+	for _, line := range lines {
+		if len(line) > maxLength {
+			maxLength = len(line)
+		}
+	}
+
+	topBorder := "+" + strings.Repeat("-", maxLength+2) + "+"
+	titleLine := "| " + title + strings.Repeat(" ", maxLength-len(title)) + " |"
+
+	fmt.Println(topBorder)
+	fmt.Println(titleLine)
+	fmt.Println(topBorder)
+
+	for _, line := range lines {
+		fmt.Printf("| %s%s |\n", line, strings.Repeat(" ", maxLength-len(line)))
+	}
+
+	fmt.Println(topBorder)
 }
