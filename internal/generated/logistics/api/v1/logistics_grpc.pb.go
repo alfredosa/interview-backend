@@ -4,7 +4,7 @@
 // - protoc             (unknown)
 // source: v1/logistics.proto
 
-package v1
+package apiv1
 
 import (
 	context "context"

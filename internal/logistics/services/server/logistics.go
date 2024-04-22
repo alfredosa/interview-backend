@@ -18,12 +18,19 @@ import (
 	"google.golang.org/grpc"
 )
 
+// GrpcService provides the necessary setup for handling gRPC API calls for the Coop Logistics Engine.
+// It includes server statistics, a logistics controller, and a channel for server shutdown.
 type GrpcService struct {
 	pb.UnimplementedCoopLogisticsEngineAPIServer
 	Stats      *ServerStatistics
 	Controller *receiver.LogisticsController
 
 	destroych chan bool
+}
+
+// Server Statistics represents all values that we want to track about our api, from performance to usage
+type ServerStatistics struct {
+	apiHits uint64
 }
 
 // ListenAndAccept starts the grpc server and beginns accepting incomign requests
@@ -37,7 +44,6 @@ func ListendAndAccept(cfg *config.ServerConfig) {
 
 	pb.RegisterCoopLogisticsEngineAPIServer(server, grpcService)
 
-	logInterval := 1 * time.Second
 	go grpcService.setupSignalHandler()
 
 	go func() {
@@ -47,6 +53,7 @@ func ListendAndAccept(cfg *config.ServerConfig) {
 		}
 	}()
 
+	logInterval := 1 * time.Second
 	go grpcService.printServerStats(logInterval)
 	<-grpcService.destroych
 }
@@ -68,10 +75,6 @@ func NewGrpcServerAndService() (*grpc.Server, *GrpcService) {
 	return server, grpcServer
 }
 
-type ServerStatistics struct {
-	apiHits uint64
-}
-
 // Increment API Hits from Server Statistics
 func (s *ServerStatistics) HitIncrement() {
 	atomic.AddUint64(&s.apiHits, 1)
@@ -82,9 +85,11 @@ func (s *GrpcService) GetHits() uint64 {
 	return atomic.LoadUint64(&s.Stats.apiHits)
 }
 
-// Prints server stats per Bucket of time.
+// Prints server stats in intervals of time.
 func (s *GrpcService) printServerStats(t time.Duration) {
+
 	var consecutiveZeros int64
+
 	ctx := context.Background()
 	for {
 		time.Sleep(t)

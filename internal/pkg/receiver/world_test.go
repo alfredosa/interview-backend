@@ -20,8 +20,9 @@ func TestLogisticsControllerSupplier(t *testing.T) {
 
 	assert.ErrorIs(t, err, nil)
 
-	supp := lc.GetSupplier(supplierID)
+	supp, err := lc.GetSupplier(ctx, supplierID)
 
+	assert.Nil(t, err)
 	assert.Equal(t, supp.Location.Lattitude, lat)
 	assert.Equal(t, supp.Location.Longitude, lon)
 
@@ -30,5 +31,4 @@ func TestLogisticsControllerSupplier(t *testing.T) {
 	assert.ErrorIs(t, err, nil)
 	assert.Equal(t, warehouse.Location.Lattitude, lat)
 	assert.Equal(t, warehouse.Location.Longitude, lon)
-
 }

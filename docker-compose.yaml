@@ -1,39 +1,28 @@
-version: "3.7"
+version: '3.8'
 
 services:
-  # Update docker compose to run your server
-  # Don't forget own Dockerfile
-  # Port must be exposed as well, Go compiled and Executed
-  interview_backend_coop_logistics_client:
+  grpc-server:
+    build:
+      context: .
+      dockerfile: devtools/Dockerfile-Server
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_TCP_PORT=50051
+    volumes:
+      - ./build-output:/app/cmd/server
+
+  grpc-client:
     build:
       context: .
       dockerfile: devtools/Dockerfile-Project
-    container_name: interview_backend_coop_logistics_client
     environment:
-      - CLIENT_SERVICE_HOST="0.0.0.0"
-      - CLIENT_SERVICE_PORT="50051"
-      # Supported transports: "gRPC" or "HTTP"
+      - APP_MAIN_ENTRY_PATH=cmd/logistics
+      - BINARY_NAME=client_logistics_coordinator
+      - CLIENT_SERVICE_HOST=grpc-server
+      - CLIENT_SERVICE_PORT=50051
       - CLIENT_TRANSPORT_TYPE="gRPC"
-      # Used for HTTP protocol: "https" or "http"
       - CLIENT_HTTP_SCHEME="http"
-    networks:
-      - coop-norge-interview-network
-  # Coop internal documentation
-  techdocs:
-    build:
-      context: docker-compose
-      dockerfile: Dockerfile
-      target: techdocs
-    working_dir: /srv/workspace
     volumes:
-      - .:/srv/workspace:z
-      - ${XDG_CACHE_HOME:-xdg-cache-home}:/root/.cache
-    ports:
-      - "127.0.0.1:3000:3000/tcp"
-      - "127.0.0.1:8000:8000/tcp"
-    command: serve
-volumes:
-  xdg-cache-home: { }
-  nothing: { }
-networks:
-  coop-norge-interview-network:
+      - ./build-output:/app/cmd/client
+    depends_on:
+      - grpc-server

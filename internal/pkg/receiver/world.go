@@ -19,19 +19,13 @@ var (
 	initialNSuppliers  = 256
 )
 
+// LogisticsController manages access to warehouse and supplier data with concurrency control.
 type LogisticsController struct {
 	Warehouses map[int64]*model.Warehouse
 	Suppliers  map[int64]*model.Supplier
 
 	warehouseMu sync.RWMutex
 	supplierMu  sync.RWMutex
-}
-
-func NewLogisticsController() *LogisticsController {
-	return &LogisticsController{
-		Warehouses: make(map[int64]*model.Warehouse, initialNWarehouses),
-		Suppliers:  make(map[int64]*model.Supplier, initialNSuppliers),
-	}
 }
 
 func (lc *LogisticsController) MoveUnit(ctx context.Context, in *pb.MoveUnitRequest) error {
@@ -43,11 +37,7 @@ func (lc *LogisticsController) MoveUnit(ctx context.Context, in *pb.MoveUnitRequ
 
 	err := lc.UpdateOrCreateSupplier(ctx, supplierID, lat, lon)
 	if err != nil {
-		return err
-	}
-
-	if ctx.Err() != nil {
-		return ctx.Err()
+		return status.Error(codes.Internal, err.Error())
 	}
 
 	return nil
@@ -63,25 +53,25 @@ func (lc *LogisticsController) WarehouseReceivedProcessing(ctx context.Context, 
 
 	warehouse, err := lc.GetOrCreateWarehouse(ctx, warehouseID, lat, lon)
 	if err != nil {
-		return err
+		return status.Error(codes.Internal, err.Error())
 	}
 	warehouse.AddUnit()
 
 	if !warehouse.SupplierExists(supplierID) {
-		supplier := model.NewSupplier(lat, lon)
+		supplier, err := model.NewSupplier(ctx, lat, lon)
+		if err != nil {
+			return status.Error(codes.Internal, err.Error())
+		}
 
-		warehouse.SafeSuppliersAdd(supplierID, supplier)
+		warehouse.SafeSuppliersAdd(ctx, supplierID, supplier)
 	}
 
-	err = warehouse.SetSafeSupplierCoordinates(supplierID, lat, lon)
+	err = warehouse.SetSafeSupplierCoordinates(ctx, supplierID, lat, lon)
 	if err != nil {
 		slog.ErrorContext(ctx, err.Error(), "lat", lat, "lon", lon)
-		return ErrFailedToAddSupplierCoordinates
+		return status.Error(codes.NotFound, ErrFailedToAddSupplierCoordinates.Error())
 	}
 
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
 	return nil
 }
 
@@ -114,8 +104,19 @@ func (lc *LogisticsController) GetWarehouseResponse(ctx context.Context, in *pb.
 	return response, nil
 }
 
+func NewLogisticsController() *LogisticsController {
+	return &LogisticsController{
+		Warehouses: make(map[int64]*model.Warehouse, initialNWarehouses),
+		Suppliers:  make(map[int64]*model.Supplier, initialNSuppliers),
+	}
+}
+
 // Get a Warehouse from the existing warehouses or add a warehouse
 func (lc *LogisticsController) GetOrCreateWarehouse(ctx context.Context, id int64, lat uint32, lon uint32) (*model.Warehouse, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	if lc.WarehouseExists(id) {
 		warehouse, err := lc.GetWarehouse(ctx, id)
 		if err != nil {
@@ -134,12 +135,20 @@ func (lc *LogisticsController) GetOrCreateWarehouse(ctx context.Context, id int6
 }
 
 func (lc *LogisticsController) UpdateOrCreateSupplier(ctx context.Context, id int64, lat uint32, lon uint32) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	if lc.SupplierExists(id) {
-		supplier := lc.GetSupplier(id)
-		if supplier == nil {
-			return ErrFailedToProcessSupplier
+		supplier, err := lc.GetSupplier(ctx, id)
+		if err != nil {
+			return err
 		}
-		supplier.SetSafeCoordinates(lat, lon)
+
+		err = supplier.SetSafeCoordinates(ctx, lat, lon)
+		if err != nil {
+			return err
+		}
 	}
 
 	supplier := &model.Supplier{
@@ -167,15 +176,19 @@ func (lc *LogisticsController) SafeAddSupplier(id int64, supplier *model.Supplie
 	lc.Suppliers[id] = supplier
 }
 
-func (lc *LogisticsController) GetSupplier(id int64) *model.Supplier {
+func (lc *LogisticsController) GetSupplier(ctx context.Context, id int64) (*model.Supplier, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	lc.supplierMu.RLock()
 	defer lc.supplierMu.RUnlock()
 	supplier, exists := lc.Suppliers[id]
 	if !exists {
-		return nil
+		return nil, ErrSupplierDoesNotExist
 	}
 
-	return supplier
+	return supplier, nil
 }
 
 func (lc *LogisticsController) GetWarehouse(ctx context.Context, id int64) (*model.Warehouse, error) {
@@ -233,8 +246,8 @@ func (lc *LogisticsController) PrintWarehousesSummary(ctx context.Context) {
 			slog.ErrorContext(ctx, "error retrieving warehouse", "error", err.Error())
 		}
 
-		totalUnits += warehouse.GetUnits()
-		slog.Info("Warehouse", "ID", warehouseID, "Warehouse Units", warehouse.GetUnits(), "Number of Suppliers", len(warehouse.Suppliers))
+		totalUnits += warehouse.GetUnits(ctx)
+		slog.Info("Warehouse", "ID", warehouseID, "Warehouse Units", warehouse.GetUnits(ctx), "Number of Suppliers", len(warehouse.Suppliers))
 	}
 
 	slog.Info("Total # of Unique Suppliers", "Suppliers", len(lc.Suppliers))

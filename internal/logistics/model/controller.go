@@ -42,7 +42,10 @@ func NewWarehouse(lat uint32, lon uint32) *Warehouse {
 	}
 }
 
-func NewSupplier(lat uint32, lon uint32) *Supplier {
+func NewSupplier(ctx context.Context, lat uint32, lon uint32) (*Supplier, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	location := &Location{
 		Lattitude: lat,
 		Longitude: lon,
@@ -50,28 +53,41 @@ func NewSupplier(lat uint32, lon uint32) *Supplier {
 
 	return &Supplier{
 		Location: location,
-	}
+	}, nil
 }
 
 var ErrSupplierDoesNotExist = errors.New("supplier does not exist")
 
-// Sets New Coordinates of a supplier
-func (wa *Warehouse) SetSafeSupplierCoordinates(id int64, lat uint32, lon uint32) error {
+// Sets New Coordinates of a Warehouse Supplier
+func (wa *Warehouse) SetSafeSupplierCoordinates(ctx context.Context, id int64, lat uint32, lon uint32) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	if !wa.SupplierExists(id) {
 		return ErrSupplierDoesNotExist
 	}
 
-	supplier := wa.GetSupplier(id)
-	supplier.SetSafeCoordinates(lat, lon)
+	supplier, err := wa.GetSupplier(ctx, id)
+	if err != nil {
+		return err
+	}
+	supplier.SetSafeCoordinates(ctx, lat, lon)
 	return nil
 }
 
-func (su *Supplier) SetSafeCoordinates(lat uint32, lon uint32) {
+func (su *Supplier) SetSafeCoordinates(ctx context.Context, lat uint32, lon uint32) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	su.supplierMu.Lock()
 	defer su.supplierMu.Unlock()
 
 	su.Location.Lattitude = lat
 	su.Location.Longitude = lon
+
+	return nil
 }
 
 // Increments the UnitsReceived counter atomically.
@@ -80,15 +96,20 @@ func (wa *Warehouse) AddUnit() {
 }
 
 // GetUnits returns the current value of the UnitsReceived counter.
-func (wa *Warehouse) GetUnits() uint64 {
+func (wa *Warehouse) GetUnits(ctx context.Context) uint64 {
 	return atomic.LoadUint64(&wa.UnitsReceived)
 }
 
 // Safely add a supplier to the Supplier pool of a given Warehouse
-func (wa *Warehouse) SafeSuppliersAdd(id int64, supplier *Supplier) {
+func (wa *Warehouse) SafeSuppliersAdd(ctx context.Context, id int64, supplier *Supplier) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	wa.supplierMu.Lock()
 	defer wa.supplierMu.Unlock()
 	wa.Suppliers[id] = supplier
+	return nil
 }
 
 // Check if a Supplier Exists in the Pool of Suppliers delivering to this Warehouse
@@ -101,14 +122,18 @@ func (wa *Warehouse) SupplierExists(id int64) bool {
 }
 
 // GetSupplier retrieves a supplier from the warehouse safely.
-func (wa *Warehouse) GetSupplier(id int64) *Supplier {
+func (wa *Warehouse) GetSupplier(ctx context.Context, id int64) (*Supplier, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	wa.supplierMu.RLock()
 	defer wa.supplierMu.RUnlock()
 	supplier, exists := wa.Suppliers[id]
 	if !exists {
-		return nil
+		return nil, ErrSupplierDoesNotExist
 	}
-	return supplier
+	return supplier, nil
 }
 
 // GetProtoSuppliers retrieves all Suppliers in protobuf format. It checks for context cancellation to handle long-running or halted requests appropriately.

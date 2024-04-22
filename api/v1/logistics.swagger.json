@@ -123,6 +123,38 @@
           "CoopLogisticsEngineAPI"
         ]
       }
+    },
+    "/v1/warehouse/{warehouseId}": {
+      "get": {
+        "summary": "Get Information about a Warehouse and it's suppliers",
+        "operationId": "CoopLogisticsEngineAPI_GetWarehouse",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetWarehouseResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "warehouseId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "int64"
+          }
+        ],
+        "tags": [
+          "CoopLogisticsEngineAPI"
+        ]
+      }
     }
   },
   "definitions": {
@@ -171,6 +203,46 @@
     "v1DefaultResponse": {
       "type": "object",
       "title": "DefaultResponse"
+    },
+    "v1GetWarehouseResponse": {
+      "type": "object",
+      "properties": {
+        "warehouse": {
+          "$ref": "#/definitions/v1Warehouse"
+        }
+      },
+      "title": "WarehouseResponse"
+    },
+    "v1Supplier": {
+      "type": "object",
+      "properties": {
+        "supplierId": {
+          "type": "string",
+          "format": "int64"
+        },
+        "location": {
+          "$ref": "#/definitions/apiv1Location"
+        }
+      }
+    },
+    "v1Warehouse": {
+      "type": "object",
+      "properties": {
+        "warehouseId": {
+          "type": "string",
+          "format": "int64"
+        },
+        "location": {
+          "$ref": "#/definitions/apiv1Location"
+        },
+        "suppliers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Supplier"
+          }
+        }
+      }
     },
     "v1WarehouseAnnouncement": {
       "type": "object",
