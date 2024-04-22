@@ -9,8 +9,6 @@ services:
     environment:
       - SERVER_HOST=0.0.0.0
       - SERVER_TCP_PORT=50051
-    volumes:
-      - ./build-output:/app/cmd/server
 
   grpc-client:
     container_name: grpc-client
@@ -24,7 +22,5 @@ services:
       - CLIENT_SERVICE_PORT=50051
       - CLIENT_TRANSPORT_TYPE="gRPC"
       - CLIENT_HTTP_SCHEME="http"
-    volumes:
-      - ./build-output:/app/cmd/client
     depends_on:
       - grpc-server

@@ -45,7 +45,7 @@ func ListendAndAccept(cfg *config.ServerConfig) {
 	go grpcService.setupSignalHandler()
 
 	parentCtx := context.Background()
-	ctx, cancel := context.WithTimeout(parentCtx, 15*time.Second)
+	ctx, cancel := context.WithTimeout(parentCtx, 20*time.Second)
 	defer cancel()
 
 	go func() {
@@ -103,16 +103,15 @@ func (s *GrpcService) printServerStats(ctx context.Context, t time.Duration) {
 			return
 
 		case <-ticker.C:
-			_ = s.Stats.resetAndPrintHits()
+			s.Stats.resetAndPrintHits()
 		}
 	}
 }
 
 // Gets the current Hit Count and Resets (Swaps) the value to 0
-func (st *ServerStatistics) resetAndPrintHits() uint64 {
+func (st *ServerStatistics) resetAndPrintHits() {
 	currentHits := atomic.SwapUint64(&st.apiHits, 0)
 	slog.Info("Statistics", "Server API hits", currentHits)
-	return currentHits
 }
 
 // Middleware / Interceptor to capture API Statistics
