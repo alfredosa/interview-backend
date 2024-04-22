@@ -10,6 +10,7 @@ import (
 
 	pb "github.com/coopnorge/interview-backend/internal/generated/logistics/api/v1"
 	"github.com/coopnorge/interview-backend/internal/logistics/model"
+	ascii "github.com/coopnorge/interview-backend/internal/pkg/printer"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -258,29 +259,5 @@ func (lc *LogisticsController) PrintWarehousesSummary(ctx context.Context) {
 	warehouseDetails.WriteString(fmt.Sprintf("Total # of Unique Suppliers: %d\n", len(lc.Suppliers)))
 	warehouseDetails.WriteString(fmt.Sprintf("Total Warehouse Units: %d", totalUnits))
 
-	boxPrint("Warehouse Summary", warehouseDetails.String())
-}
-
-// boxPrint prints the given title and message inside an ASCII art box.
-func boxPrint(title, message string) {
-	lines := strings.Split(message, "\n")
-	maxLength := len(title)
-	for _, line := range lines {
-		if len(line) > maxLength {
-			maxLength = len(line)
-		}
-	}
-
-	topBorder := "+" + strings.Repeat("-", maxLength+2) + "+"
-	titleLine := "| " + title + strings.Repeat(" ", maxLength-len(title)) + " |"
-
-	fmt.Println(topBorder)
-	fmt.Println(titleLine)
-	fmt.Println(topBorder)
-
-	for _, line := range lines {
-		fmt.Printf("| %s%s |\n", line, strings.Repeat(" ", maxLength-len(line)))
-	}
-
-	fmt.Println(topBorder)
+	ascii.SummaryPrinter("Warehouse Summary", warehouseDetails.String())
 }
