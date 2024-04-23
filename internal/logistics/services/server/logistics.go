@@ -45,7 +45,7 @@ func ListendAndAccept(cfg *config.ServerConfig) {
 	go grpcService.setupSignalHandler()
 
 	parentCtx := context.Background()
-	ctx, cancel := context.WithTimeout(parentCtx, 20*time.Second)
+	ctxWithTime, cancel := context.WithTimeout(parentCtx, 20*time.Second)
 	defer cancel()
 
 	go func() {
@@ -56,7 +56,7 @@ func ListendAndAccept(cfg *config.ServerConfig) {
 	}()
 
 	logInterval := 1 * time.Second
-	go grpcService.printServerStats(ctx, logInterval)
+	go grpcService.printServerStats(ctxWithTime, logInterval)
 
 	<-grpcService.stopch
 	grpcService.Controller.PrintWarehousesSummary(parentCtx)
@@ -64,20 +64,27 @@ func ListendAndAccept(cfg *config.ServerConfig) {
 }
 
 func NewGrpcServerAndService() (*grpc.Server, *GrpcService) {
-	stats := &ServerStatistics{}
+	stats := NewServerStatistics()
 	controller := receiver.NewLogisticsController()
 
-	grpcServer := &GrpcService{
+	grpcService := &GrpcService{
 		Stats:      stats,
 		Controller: controller,
 		stopch:     make(chan bool),
 	}
 
 	server := grpc.NewServer(
-		grpc.UnaryInterceptor(apiHitsInterceptor(grpcServer.Stats)),
+		grpc.UnaryInterceptor(grpcService.Stats.apiHitsInterceptor()),
 	)
 
-	return server, grpcServer
+	return server, grpcService
+}
+
+// Creates new Server Statistics struct
+func NewServerStatistics() *ServerStatistics {
+	return &ServerStatistics{
+		apiHits: uint64(0),
+	}
 }
 
 // Increment API Hits from Server Statistics
@@ -115,7 +122,7 @@ func (st *ServerStatistics) resetAndPrintHits() {
 }
 
 // Middleware / Interceptor to capture API Statistics
-func apiHitsInterceptor(stats *ServerStatistics) grpc.UnaryServerInterceptor {
+func (stats *ServerStatistics) apiHitsInterceptor() grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
 		req interface{},

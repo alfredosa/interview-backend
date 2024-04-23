@@ -10,6 +10,16 @@
 - [Main Topic](#main-topic)
 - [Details](#details)
 
+## Intro
+
+Coop Logistics Engine simulates client activity about several cargo units that
+deliver goods between different warehouses in the world. All this activity will
+be reported as request to your API server.
+
+- API Server must be capable of handling all requests sent by this client
+  without dropping them.
+- API Server - code design must be flexible for introducing new features.
+
 ## Disclaimers:
 
 - A lot of unknowns. E.g How many warehouses or Suppliers there are / Or the amount of traffic.
@@ -34,17 +44,9 @@
 > #### Technology Choice:
 > I went with **gRPC**. For this use case, strongly typed messages or schema, it's streaming capabilities, its a strong candidate for vehicle and cargo tracking.
 
-#### Server:
+#### Unary Interceptor
 
-<div style="display: flex; justify-content: space-around; align-items: center;">
-  <div style="flex: 1; padding: 10px;">
-    <img src="/docs/assets/server.png" alt="Server" style="width: 100%;">
-  </div>
-  <div style="flex: 1; padding: 10px;">
-    <img src="/docs/assets/grpcservice.png" alt="Service" style="width: 100%;">
-  </div>
-</div>
-
+> gRPC Version of a Middleware. All requests will pass through it incremeting the Statistics of our Server
 
 #### Handlers
 

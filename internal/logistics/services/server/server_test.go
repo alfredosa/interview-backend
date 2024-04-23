@@ -61,9 +61,9 @@ func TestMoveUnit(t *testing.T) {
 	}
 
 	assert.Nil(t, err)
-	assert.Equal(t, uint64(1), s.Stats.apiHits)
+	assert.Equal(t, s.Stats.apiHits, uint64(1))
 	assert.Equal(t, len(s.Controller.Suppliers), 1)
-	assert.Equal(t, s.Controller.Suppliers[101].Location.Lattitude, uint32(123456789))
+	assert.Equal(t, s.Controller.Suppliers[101].Location.Lattitude, req.Location.Latitude)
 }
 
 func TestUnitReachedWarehouse(t *testing.T) {
@@ -80,7 +80,7 @@ func TestUnitReachedWarehouse(t *testing.T) {
 		fmt.Printf("Failed to reach warehouse with %s", err)
 	}
 
-	assert.Equal(t, uint64(1), s.Stats.apiHits)
+	assert.Equal(t, s.Stats.apiHits, uint64(1))
 	assert.Nil(t, err)
 	assert.Equal(t, len(s.Controller.Warehouses), 1)
 	assert.Equal(t, len(s.Controller.Warehouses[5001].Suppliers), 1)
